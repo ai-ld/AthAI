@@ -3,7 +3,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from langchain.document_loaders import WebBaseLoader, PyPDFLoader
-from openai_embeddings import OpenAIEmbeddings
+from langchain.embeddings.openai import OpenAIEmbeddings
 from chroma import Chroma
 
 # Set up page configuration
