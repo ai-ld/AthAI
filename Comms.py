@@ -81,14 +81,22 @@ elif tabs == 'Social Media':
     post_content = st.text_area("Post content:")
 
     if st.button(label="Generate Social Media Post"):
+    try:
+        st.write("```")
+        output = generic_completion("Generate a social media post for the political campaign related to the topic: " + prompt_social_media)
+        st.write(output)
+        st.write("```")
+    except:
+        st.write("An error occurred while processing your request.")
+
+elif communication == 'Speech Writing':
+    prompt_speech = st.text_area("What should the speech be about?")
+    if st.button(label="Generate Speech"):
         try:
-            output = generic_completion("Generate an engaging and concise social media post for a political campaign "
-                                        "to be published on " + social_media + ". The post should include the "
-                                        "following content: " + post_content)
             st.write("```")
+            output = generic_completion("Generate a speech for the political campaign related to the topic: " + prompt_speech)
             st.write(output)
             st.write("```")
-            if social_media == 'Twitter':
-                components.html(
-                    f"""
-                        <
+        except:
+            st.write("An error occurred while processing your request.")
+
