@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 
 from langchain.document_loaders import WebBaseLoader, PyPDFLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
-from chroma import Chroma
+from langchain.vectorstores import Chroma
 
 # Set up page configuration
 st.set_page_config(page_title="Communications 📣", page_icon=":mega:", layout="wide")
