@@ -59,7 +59,37 @@ def find_similar_documents(texts, query):
     docsearch = Chroma.from_texts(texts, embeddings)
     similar_docs = docsearch.similarity_search(query)
     return similar_docs
+# Checkbox for loading data
+load_data_checkbox = st.checkbox("Load data from PDFs or websites?")
 
+# Load data
+loaded_data = None
+if load_data_checkbox:
+    source_type = st.selectbox("Select Source Type", ["Website", "PDF"])
+    
+    if source_type == "Website":
+        source_path = st.text_input("Enter the URL of the website")
+    elif source_type == "PDF":
+        uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+    
+    if st.button(label="Load Source"):
+        try:
+            if source_type == "Website":
+                loaded_data = load_data(source_type, source_path)
+            elif source_type == "PDF" and uploaded_file is not None:
+                with BytesIO(uploaded_file.getbuffer()) as input_buffer:
+                    loaded_data = load_data(source_type, input_buffer)
+            st.write("Data loaded successfully!")
+        except:
+            st.write("An error occurred while loading the data. Please check the source type and path.")
+
+# Function to generate a prompt with similar documents
+def generate_prompt_with_similar_docs(base_prompt, category, loaded_data):
+    if loaded_data:
+        similar_docs = find_similar_documents(loaded_data, category)
+        if similar_docs:
+            base_prompt += " using the following related information: " + " ".join(similar_docs)
+    return base_prompt
 # Email tab
 if tabs == 'Email 📧':
     subject = st.text_input("Email subject:")
@@ -99,38 +129,13 @@ elif tabs == 'Social Media 📲':
     st.subheader('Generate Social Media Content 🎉')
     
     platform = st.selectbox('Select Social Media Platform', ['Twitter 🐦', 'Facebook 👍', 'Instagram 📷', 'LinkedIn 🔗'])
+    category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
 
-    if platform == 'Twitter 🐦':
-        st.subheader('Twitter Post')
-        category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
-        if st.button(label="Generate Twitter Post"):
-            prompt = "Generate an engaging tweet for a political campaign on the topic: " + category
-            generated_tweet = generic_completion(prompt)
-            st.write(generated_tweet)
-
-    elif platform == 'Facebook 👍':
-        st.subheader('Facebook Post')
-        category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
-        if st.button(label="Generate Facebook Post"):
-            prompt = "Generate an engaging Facebook post for a political campaign on the topic: " + category
-            generated_fb_post = generic_completion(prompt)
-            st.write(generated_fb_post)
-
-    elif platform == 'Instagram 📷':
-        st.subheader('Instagram Caption')
-        category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
-        if st.button(label="Generate Instagram Caption"):
-            prompt = "Generate a captivating Instagram caption for a political campaign on the topic: " + category
-            generated_insta_caption = generic_completion(prompt)
-            st.write(generated_insta_caption)
-
-    elif platform == 'LinkedIn 🔗':
-        st.subheader('LinkedIn Post')
-        category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
-        li_post_input = st.text_area("Enter your LinkedIn post idea:")
-        if st.button(label="Generate LinkedIn Post"):
-            generated_li_post = gpt_generate_text(category + li_post_input)
-            st.write(generated_li_post)
+    if st.button(label="Generate Social Media Post"):
+        base_prompt = f"Generate an engaging {platform} post for a political campaign on the topic: {category}"
+        prompt = generate_prompt_with_similar_docs(base_prompt, category, loaded_data)
+        generated_post = generic_completion(prompt)
+        st.write(generated_post)
 
 
 elif communication == 'Speech Writing':
