@@ -75,19 +75,38 @@ elif tabs == 'Press Release':
 
 # Social Media tab
 elif tabs == 'Social Media':
-    social_media = st.selectbox(
-        'Which social media platform?',
-        ('Twitter', 'Facebook', 'Instagram', 'LinkedIn'))
-    post_content = st.text_area("Post content:")
+    st.subheader('Generate Social Media Content')
+    
+    platform = st.selectbox('Select Social Media Platform', ['Twitter', 'Facebook', 'Instagram', 'LinkedIn'])
 
-    if st.button(label="Generate Social Media Post"):
-         try:
-             st.write("```")
-             output = generic_completion("Generate a social media post for the political campaign related to the topic: " + prompt_social_media)
-             st.write(output)
-             st.write("```")
-         except:
-             st.write("An error occurred while processing your request.")
+    if platform == 'Twitter':
+        st.subheader('Twitter Post')
+        tweet_input = st.text_area("Enter your tweet idea:", max_chars=280)
+        if st.button(label="Generate Twitter Post"):
+            generated_tweet = gpt_generate_text(tweet_input)
+            st.write(generated_tweet)
+
+    elif platform == 'Facebook':
+        st.subheader('Facebook Post')
+        fb_post_input = st.text_area("Enter your Facebook post idea:")
+        if st.button(label="Generate Facebook Post"):
+            generated_fb_post = gpt_generate_text(fb_post_input)
+            st.write(generated_fb_post)
+
+    elif platform == 'Instagram':
+        st.subheader('Instagram Caption')
+        insta_caption_input = st.text_area("Enter your Instagram photo description or theme:")
+        if st.button(label="Generate Instagram Caption"):
+            generated_insta_caption = gpt_generate_text(insta_caption_input)
+            st.write(generated_insta_caption)
+
+    elif platform == 'LinkedIn':
+        st.subheader('LinkedIn Post')
+        li_post_input = st.text_area("Enter your LinkedIn post idea:")
+        if st.button(label="Generate LinkedIn Post"):
+            generated_li_post = gpt_generate_text(li_post_input)
+            st.write(generated_li_post)
+
 
 elif communication == 'Speech Writing':
     prompt_speech = st.text_area("What should the speech be about?")
