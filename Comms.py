@@ -4,7 +4,13 @@ import streamlit.components.v1 as components
 
 from langchain.document_loaders import WebBaseLoader, PyPDFLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
+import pinecone 
+
+# initialize pinecone
+pinecone.init(
+    api_key=st.secrets["pinecone-key"],  # find at app.pinecone.io
+    environment=st.secrets["pinecone-env"]  # next to api key in console
+)
 
 # Set up page configuration
 st.set_page_config(page_title="Communications 📣", page_icon=":mega:", layout="wide")
