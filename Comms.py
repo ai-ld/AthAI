@@ -81,13 +81,13 @@ elif tabs == 'Social Media':
     post_content = st.text_area("Post content:")
 
     if st.button(label="Generate Social Media Post"):
-    try:
-        st.write("```")
-        output = generic_completion("Generate a social media post for the political campaign related to the topic: " + prompt_social_media)
-        st.write(output)
-        st.write("```")
-    except:
-        st.write("An error occurred while processing your request.")
+         try:
+             st.write("```")
+             output = generic_completion("Generate a social media post for the political campaign related to the topic: " + prompt_social_media)
+             st.write(output)
+             st.write("```")
+         except:
+             st.write("An error occurred while processing your request.")
 
 elif communication == 'Speech Writing':
     prompt_speech = st.text_area("What should the speech be about?")
