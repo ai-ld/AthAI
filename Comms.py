@@ -148,27 +148,3 @@ elif communication == 'Speech Writing':
             st.write("```")
         except:
             st.write("An error occurred while processing your request.")
-
-                  # Additional section for loading PDFs and websites
-st.subheader("Load PDFs and Websites")
-source_type = st.selectbox("Select Source Type", ["Website", "PDF"])
-source_path = st.text_input("Enter the URL or path of the source")
-
-loaded_data = False
-
-if st.button(label="Load Source"):
-    try:
-        data = load_data(source_type, source_path)
-        loaded_data = True
-        st.write("Data loaded successfully!")
-    except:
-        st.write("An error occurred while loading the data. Please check the source type and path.")
-
-# Use the loaded data to generate communication posts
-if loaded_data:
-    similar_docs = find_similar_documents(data, category)
-    
-    if similar_docs:
-        prompt += " using the following related information: " + " ".join(similar_docs)
-        generated_communication = generic_completion(prompt)
-        st.write(generated_communication)
