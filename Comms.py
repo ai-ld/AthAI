@@ -130,21 +130,9 @@ elif tabs == 'Social Media 📲':
     
     platform = st.selectbox('Select Social Media Platform', ['Twitter 🐦', 'Facebook 👍', 'Instagram 📷', 'LinkedIn 🔗'])
     category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
-
+    info = st.text_input("Details", "")
     if st.button(label="Generate Social Media Post"):
-        base_prompt = f"Generate an engaging {platform} post for a political campaign on the topic: {category}"
+        base_prompt = f"Generate an engaging {platform} post for a political campaign on the topic: {category} with details: {info}"
         prompt = generate_prompt_with_similar_docs(base_prompt, category, loaded_data)
         generated_post = generic_completion(prompt)
         st.write(generated_post)
-
-
-elif communication == 'Speech Writing':
-    prompt_speech = st.text_area("What should the speech be about?")
-    if st.button(label="Generate Speech"):
-        try:
-            st.write("```")
-            output = generic_completion("Generate a speech for the political campaign related to the topic: " + prompt_speech)
-            st.write(output)
-            st.write("```")
-        except:
-            st.write("An error occurred while processing your request.")
