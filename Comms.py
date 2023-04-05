@@ -25,7 +25,7 @@ st.write("This tool generates communications for political campaigns using OpenA
 # Create a tab selection
 tabs = st.selectbox(
     'Which communication do you want to create? 📄',
-    ('Email 📧', 'Press Release 📰', 'Social Media 📲', 'Speech Writing 🎙️'))
+    ('Email 📧', 'Press Release 📰', 'Social Media 📲'))
 
 # Function to generate content using GPT
 def generic_completion(prompt):
