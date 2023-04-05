@@ -1,5 +1,6 @@
 openai
 streamlit
+langchain
 matplotlib
 plotly
 plotly.express
