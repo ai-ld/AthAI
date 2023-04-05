@@ -20,8 +20,8 @@ st.write("This tool generates communications for political campaigns using OpenA
 
 # Create a tab selection
 tabs = st.selectbox(
-    'Which communication do you want to create?',
-    ('Email', 'Press Release', 'Social Media', 'Speech Writing'))
+    'Which communication do you want to create? 📄',
+    ('Email 📧', 'Press Release 📰', 'Social Media 📲', 'Speech Writing 🎙️'))
 
 # Function to generate content using GPT
 def generic_completion(prompt):
@@ -40,7 +40,7 @@ def tweet(output):
         "Make it engaging and concise: " + output)
 
 # Email tab
-if tabs == 'Email':
+if tabs == 'Email 📧':
     subject = st.text_input("Email subject:")
     recipient = st.text_input("Recipient:")
     details = st.text_area("Email details:")
@@ -57,7 +57,7 @@ if tabs == 'Email':
             st.write("An error occurred while processing your request.")
 
 # Press Release tab
-elif tabs == 'Press Release':
+elif tabs == 'Press Release 📰':
     headline = st.text_input("Press release headline:")
     subheadline = st.text_input("Press release subheadline:")
     body = st.text_area("Press release content:")
@@ -74,37 +74,41 @@ elif tabs == 'Press Release':
             st.write("An error occurred while processing your request.")
 
 # Social Media tab
-elif tabs == 'Social Media':
-    st.subheader('Generate Social Media Content')
+elif tabs == 'Social Media 📲':
+    st.subheader('Generate Social Media Content 🎉')
     
-    platform = st.selectbox('Select Social Media Platform', ['Twitter', 'Facebook', 'Instagram', 'LinkedIn'])
+    platform = st.selectbox('Select Social Media Platform', ['Twitter 🐦', 'Facebook 👍', 'Instagram 📷', 'LinkedIn 🔗'])
 
-    if platform == 'Twitter':
+    if platform == 'Twitter 🐦':
         st.subheader('Twitter Post')
-        tweet_input = st.text_area("Enter your tweet idea:", max_chars=280)
+        category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
         if st.button(label="Generate Twitter Post"):
-            generated_tweet = gpt_generate_text(tweet_input)
+            prompt = "Generate an engaging tweet for a political campaign on the topic: " + category
+            generated_tweet = generic_completion(prompt)
             st.write(generated_tweet)
 
-    elif platform == 'Facebook':
+    elif platform == 'Facebook 👍':
         st.subheader('Facebook Post')
-        fb_post_input = st.text_area("Enter your Facebook post idea:")
+        category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
         if st.button(label="Generate Facebook Post"):
-            generated_fb_post = gpt_generate_text(fb_post_input)
+            prompt = "Generate an engaging Facebook post for a political campaign on the topic: " + category
+            generated_fb_post = generic_completion(prompt)
             st.write(generated_fb_post)
 
-    elif platform == 'Instagram':
+    elif platform == 'Instagram 📷':
         st.subheader('Instagram Caption')
-        insta_caption_input = st.text_area("Enter your Instagram photo description or theme:")
+        category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
         if st.button(label="Generate Instagram Caption"):
-            generated_insta_caption = gpt_generate_text(insta_caption_input)
+            prompt = "Generate a captivating Instagram caption for a political campaign on the topic: " + category
+            generated_insta_caption = generic_completion(prompt)
             st.write(generated_insta_caption)
 
-    elif platform == 'LinkedIn':
+    elif platform == 'LinkedIn 🔗':
         st.subheader('LinkedIn Post')
+        category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
         li_post_input = st.text_area("Enter your LinkedIn post idea:")
         if st.button(label="Generate LinkedIn Post"):
-            generated_li_post = gpt_generate_text(li_post_input)
+            generated_li_post = gpt_generate_text(category + li_post_input)
             st.write(generated_li_post)
 
 
