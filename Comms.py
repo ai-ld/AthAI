@@ -2,6 +2,10 @@ import openai
 import streamlit as st
 import streamlit.components.v1 as components
 
+from langchain.document_loaders import WebBaseLoader, PyPDFLoader
+from openai_embeddings import OpenAIEmbeddings
+from chroma import Chroma
+
 # Set up page configuration
 st.set_page_config(page_title="Communications 📣", page_icon=":mega:", layout="wide")
 
@@ -38,6 +42,23 @@ def tweet(output):
     return generic_completion(
         "Generate a tweet summarizing the following text. "
         "Make it engaging and concise: " + output)
+
+# Function to load PDFs and websites
+def load_data(source_type, source_path):
+    if source_type == "Website":
+        loader = WebBaseLoader(source_path)
+        data = loader.load()
+    elif source_type == "PDF":
+        loader = PyPDFLoader(source_path)
+        data = loader.load_and_split()
+    return data
+
+# Function to find similar documents
+def find_similar_documents(texts, query):
+    embeddings = OpenAIEmbeddings()
+    docsearch = Chroma.from_texts(texts, embeddings)
+    similar_docs = docsearch.similarity_search(query)
+    return similar_docs
 
 # Email tab
 if tabs == 'Email 📧':
@@ -123,3 +144,23 @@ elif communication == 'Speech Writing':
         except:
             st.write("An error occurred while processing your request.")
 
+                  # Additional section for loading PDFs and websites
+st.subheader("Load PDFs and Websites")
+source_type = st.selectbox("Select Source Type", ["Website", "PDF"])
+source_path = st.text_input("Enter the URL or path of the source")
+
+if st.button(label="Load Source"):
+    try:
+        loaded_data = load_data(source_type, source_path)
+        st.write("Data loaded successfully!")
+    except:
+        st.write("An error occurred while loading the data. Please check the source type and path.")
+
+# Use the loaded data to generate communication posts
+if loaded_data:
+    similar_docs = find_similar_documents(loaded_data, category)
+    
+    if similar_docs:
+        prompt += " using the following related information: " + " ".join(similar_docs)
+        generated_communication = generic_completion(prompt)
+        st.write(generated_communication)
