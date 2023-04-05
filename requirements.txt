@@ -2,6 +2,9 @@ openai
 streamlit
 langchain
 matplotlib
+tiktoken
+seaborn
+datetime
 plotly
 plotly.express
 scipi
