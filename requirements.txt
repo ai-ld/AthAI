@@ -7,5 +7,6 @@ plotly.express
 scipi
 numpy
 scikit-learn
+apify-client
 tenacity
 pillow
