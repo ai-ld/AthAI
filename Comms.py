@@ -1,144 +1,225 @@
-import openai
 import streamlit as st
-import streamlit.components.v1 as components
+import pandas as pd
+import openai
+from datetime import datetime
+import os
+from apify_client import ApifyClient
+from langchain import OpenAI
+from openai.embeddings_utils import get_embedding, cosine_similarity
+import tiktoken
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
+from langchain.agents import create_pandas_dataframe_agent
 
-from langchain.document_loaders import WebBaseLoader, PyPDFLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-import pinecone 
 
-# initialize pinecone
-pinecone.init(
-    api_key=st.secrets["pinecone-key"],  # find at app.pinecone.io
-    environment=st.secrets["pinecone-env"]  # next to api key in console
-)
+# embedding model parameters
+embedding_model = "text-embedding-ada-002"
+embedding_encoding = "cl100k_base"  # this the encoding for text-embedding-ada-002
+max_tokens = 8000  # the maximum for text-embedding-ada-002 is 8191
 
-# Set up page configuration
-st.set_page_config(page_title="Communications 📣", page_icon=":mega:", layout="wide")
-
-# Set up page header and subheader
-st.title("Political Campaign AI-powered Communication Tool")
-st.subheader("A custom app for generating communications")
-
-# Set API key
 openai.api_key = st.secrets["oai-key"]
+client = ApifyClient(st.secrets["apify-key"])
 
-# Description and information
-st.write("This tool generates communications for political campaigns using OpenAI's GPT-3 service. "
-         "Please enter as much information as you can, and GPT will handle the rest.\n\n"
-         "Note: GPT-3 might generate incorrect information, so editing output is still necessary. "
-         "This is a demo with limitations.")
+encoding = tiktoken.get_encoding(embedding_encoding)
 
-# Create a tab selection
-tabs = st.selectbox(
-    'Which communication do you want to create? 📄',
-    ('Email 📧', 'Press Release 📰', 'Social Media 📲'))
+def get_embedding(text, model="text-embedding-ada-002"):
+    text = text.replace("\n", " ")
+    return openai.Embedding.create(input = [text], model=model)['data'][0]['embedding']
 
-# Function to generate content using GPT
-def generic_completion(prompt):
-    completions = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.85
+def fetch_twitter_data(handles, n, from_date=None, to_date=None):
+    run_input = {
+        "handle": handles,
+        "tweetsDesired": n,
+        "profilesDesired": len(handles),
+    }
+
+    if from_date is not None:
+        run_input["from_date"] = from_date
+    if to_date is not None:
+        run_input["to_date"] = to_date
+    run = client.actor("quacker/twitter-scraper").call(run_input=run_input)
+    tweet_data = [(item['created_at'], item['full_text'], item['user']['screen_name']) for item in client.dataset(run["defaultDatasetId"]).iterate_items()]
+    df = pd.DataFrame(tweet_data, columns=['Date', 'Text', 'Author'])
+    return df
+
+def fetch_twitter_data_by_keyword(keyword, n, from_date=None, to_date=None):
+    run_input = {
+        "searchTerms": keyword,
+        "tweetsDesired": n,
+    }
+
+    if from_date is not None:
+        run_input["from_date"] = from_date
+    if to_date is not None:
+        run_input["to_date"] = to_date
+    run = client.actor("quacker/twitter-scraper").call(run_input=run_input)
+    tweet_data = [(item['created_at'], item['full_text'], item['user']['screen_name']) for item in client.dataset(run["defaultDatasetId"]).iterate_items()]
+    df = pd.DataFrame(tweet_data, columns=['Date', 'Text', 'Author'])
+    return df
+
+def generate_embeddings(df):
+    df['embedding'] = df.Text.apply(lambda x: get_embedding(x, model='text-embedding-ada-002'))
+    embeddings = df['embedding'].apply(lambda x: np.array(x))
+    embeddings_matrix = np.vstack(embeddings)
+    return embeddings_matrix
+
+
+def generate_summary(messages, model="gpt-3.5-turbo"):
+    conversation = [{"role": "system", "content": "Summarize the following clusters in detail:"}]
+    for message in messages:
+        conversation.append({"role": "user", "content": message})
+
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=conversation,
+        max_tokens=100,
+        n=1,
+        stop=None,
+        temperature=0.5,
     )
-    message = completions['choices'][0]['message']['content']
-    return message.strip()
 
-# Function to generate a tweet
-def tweet(output):
-    return generic_completion(
-        "Generate a tweet summarizing the following text. "
-        "Make it engaging and concise: " + output)
+    return response.choices[0].message.content.strip()
 
-# Function to load PDFs and websites
-def load_data(source_type, source_path):
-    if source_type == "Website":
-        loader = WebBaseLoader(source_path)
-        data = loader.load()
-    elif source_type == "PDF":
-        loader = PyPDFLoader(source_path)
-        data = loader.load_and_split()
-    return data
 
-# Function to find similar documents
-def find_similar_documents(texts, query):
-    embeddings = OpenAIEmbeddings()
-    docsearch = Chroma.from_texts(texts, embeddings)
-    similar_docs = docsearch.similarity_search(query)
-    return similar_docs
-# Checkbox for loading data
-load_data_checkbox = st.checkbox("Load data from PDFs or websites?")
+def calculate_optimal_clusters(embeddings_matrix, max_k=4):
+    scaler = StandardScaler()
+    scaled_embeddings = scaler.fit_transform(embeddings_matrix)
 
-# Load data
-loaded_data = None
-if load_data_checkbox:
-    source_type = st.selectbox("Select Source Type", ["Website", "PDF"])
-    
-    if source_type == "Website":
-        source_path = st.text_input("Enter the URL of the website")
-    elif source_type == "PDF":
-        uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
-    
-    if st.button(label="Load Source"):
-        try:
-            if source_type == "Website":
-                loaded_data = load_data(source_type, source_path)
-            elif source_type == "PDF" and uploaded_file is not None:
-                with BytesIO(uploaded_file.getbuffer()) as input_buffer:
-                    loaded_data = load_data(source_type, input_buffer)
-            st.write("Data loaded successfully!")
-        except:
-            st.write("An error occurred while loading the data. Please check the source type and path.")
+    k_values = list(range(2, max_k + 1))  # Start from 2 clusters, as silhouette_score requires at least 2
+    silhouette_scores = []
 
-# Function to generate a prompt with similar documents
-def generate_prompt_with_similar_docs(base_prompt, category, loaded_data):
-    if loaded_data:
-        similar_docs = find_similar_documents(loaded_data, category)
-        if similar_docs:
-            base_prompt += " using the following related information: " + " ".join(similar_docs)
-    return base_prompt
-# Email tab
-if tabs == 'Email 📧':
-    subject = st.text_input("Email subject:")
-    recipient = st.text_input("Recipient:")
-    details = st.text_area("Email details:")
+    for k in k_values:
+        kmeans = KMeans(n_clusters=k, random_state=42)
+        clusters = kmeans.fit_predict(scaled_embeddings)
+        score = silhouette_score(scaled_embeddings, clusters)
+        silhouette_scores.append(score)
 
-    if st.button(label="Generate Email"):
-        try:
-            output = generic_completion("Generate a well-written and engaging email for a political campaign. "
-                                        "The email is to be sent to " + recipient + " with the subject " + subject +
-                                        ". The email should include the following details: " + details)
-            st.write("```")
-            st.write(output)
-            st.write("```")
-        except:
-            st.write("An error occurred while processing your request.")
+    optimal_k = k_values[silhouette_scores.index(max(silhouette_scores))]
+    return optimal_k
 
-# Press Release tab
-elif tabs == 'Press Release 📰':
-    headline = st.text_input("Press release headline:")
-    subheadline = st.text_input("Press release subheadline:")
-    body = st.text_area("Press release content:")
 
-    if st.button(label="Generate Press Release"):
-        try:
-            output = generic_completion("Generate a compelling press release for a political campaign. "
-                                        "The headline is: " + headline + ", and the subheadline is: " + subheadline +
-                                        ". The press release should include the following content: " + body)
-            st.write("```")
-            st.write(output)
-            st.write("```")
-        except:
-            st.write("An error occurred while processing your request.")
+def plot_clusters(embeddings_2d, clusters):
+    fig, ax = plt.subplots(figsize=(10, 8))
+    sns.scatterplot(x=embeddings_2d[:, 0], y=embeddings_2d[:, 1], hue=clusters, palette='viridis', legend="full", s=100, alpha=0.7, ax=ax)
+    ax.set_xlabel('Component 1')
+    ax.set_ylabel('Component 2')
+    ax.set_title('Cluster Visualization of OpenAI Embeddings')
+    st.pyplot(fig)
 
-# Social Media tab
-elif tabs == 'Social Media 📲':
-    st.subheader('Generate Social Media Content 🎉')
-    
-    platform = st.selectbox('Select Social Media Platform', ['Twitter 🐦', 'Facebook 👍', 'Instagram 📷', 'LinkedIn 🔗'])
-    category = st.selectbox("Choose a topic:", ["Campaign Announcement 📢", "Policy Position 📚", "Event Invitation 🎟️", "Fundraising 💰"])
-    info = st.text_input("Details", "")
-    if st.button(label="Generate Social Media Post"):
-        base_prompt = f"Generate an engaging {platform} post for a political campaign on the topic: {category} with details: {info}"
-        prompt = generate_prompt_with_similar_docs(base_prompt, category, loaded_data)
-        generated_post = generic_completion(prompt)
-        st.write(generated_post)
+def plot_similarity(df):
+    df['Date'] = pd.to_datetime(df['Date'])
+    fig, ax = plt.subplots()
+    ax.scatter(df['Date'], df['Similarity'])
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Similarity')
+    ax.set_title('Similarity Over Time')
+    st.pyplot(fig)
+
+st.title("Political Campaign Analytics")
+
+# Select the data source
+data_source = st.selectbox("Select type", ["Twitter", "Polling", "Funding"])
+st.session_state['fetch_data_pressed'] = False
+
+if data_source == "Twitter":
+    st.subheader("Twitter Analytics")
+    # Input fields
+    search_option = st.selectbox("Search by", ["Profile", "Keyword"])
+    if search_option == "Profile":
+        handles_input = st.text_input("Enter the Twitter handles (separated by commas)").replace(" ", "").strip("@")
+        handles = handles_input.split(",")
+    else:
+        keyword = st.text_input("Enter the search keyword")
+        keywords = keyword.split(",")
+
+    n = st.number_input("Enter the number of tweets/posts to fetch:", min_value=1, max_value=1000, value=100, step=50)
+    use_dates = st.checkbox("Use dates?")
+
+    from_date = None
+    to_date = None
+
+    if use_dates:
+        from_date = st.date_input("From date:")
+        to_date = st.date_input("To date:")
+
+    if st.button("Fetch Data"):
+            if search_option == "Profile":
+                st.write(f"Fetching {n} tweets for @{handles}")
+                df = fetch_twitter_data(handles, n, from_date, to_date)
+                #df = pd.read_csv("df.csv")
+            else:
+                st.write(f"Fetching {n} tweets containing '{keyword}'")
+                df = fetch_twitter_data_by_keyword(keywords, n, from_date=from_date, to_date=to_date)
+
+            st.write("Data fetched successfully.")
+
+            st.write("Generating embeddings...")
+            embeddings_matrix = generate_embeddings(df)
+            st.write("Embeddings generated.")
+            # Display text explanation for the selected analysis
+            # Create expanders for each analysis type
+
+            @st.cache
+            def convert_df(df):
+                # IMPORTANT: Cache the conversion to prevent computation on every rerun
+                return df.to_csv().encode('utf-8')
+
+
+            csv = convert_df(df)
+
+            st.download_button(
+                label="Download data as CSV",
+                data=csv,
+                file_name='df.csv',
+                mime='text/csv',
+            )
+
+            explanations = {
+                "Clustering": """
+                           Clustering analysis helps to identify groups of similar documents within a dataset.
+                           In the context of a political campaign, this can be useful to identify common themes or patterns in public opinions.
+                           For example, it could reveal groups of people sharing similar concerns or political views.
+                           """,
+                "Similarity Search": """
+                           Similarity search enables you to find documents that are most similar to a given query.
+                           In a political campaign, this can be helpful to find relevant documents or public opinions that match specific topics or talking points.
+                           For example, you could use similarity search to find articles or social media posts discussing a particular policy proposal.
+                           """,
+                "Sentiment Analysis": """
+                           Sentiment analysis is the process of determining the sentiment or emotion expressed in a piece of text.
+                           For a political campaign, this can help to understand how people feel about certain issues or candidates.
+                           For example, you could analyze sentiment in social media posts or news articles to gauge public opinion on a specific topic.
+                           """
+            }
+            st.write(explanations["Clustering"])
+
+            st.write("Clustering the data...")
+            optimal_k = calculate_optimal_clusters(embeddings_matrix)
+            scaler = StandardScaler()
+            scaled_embeddings = scaler.fit_transform(embeddings_matrix)
+            kmeans = KMeans(n_clusters=optimal_k, random_state=42)
+            clusters = kmeans.fit_predict(scaled_embeddings)
+
+            pca = PCA(n_components=2)
+            embeddings_2d = pca.fit_transform(scaled_embeddings)
+            st.write("Visualizing the clusters...")
+            plot_clusters(embeddings_2d, clusters)
+
+            num_examples = 10  # Adjust this value based on your needs
+            for cluster_idx in range(optimal_k):
+                cluster_data = np.array(scaled_embeddings)[clusters == cluster_idx]
+                distances = [np.linalg.norm(embedding - kmeans.cluster_centers_[cluster_idx]) for embedding in
+                             cluster_data]
+                closest_examples_idx = np.argsort(distances)[:num_examples]
+
+                messages = [f"{df.loc[idx, 'Author']} + {df.loc[idx, 'Text']}" for idx in closest_examples_idx]
+
+                st.write(f"\nCluster {cluster_idx}:")
+                summary = generate_summary(messages)
+                st.write(summary)
