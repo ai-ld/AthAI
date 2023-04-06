@@ -124,7 +124,7 @@ def plot_similarity(df):
 st.title("Political Campaign Analytics")
 
 # Select the data source
-data_source = st.selectbox("Select type", ["Twitter", "Polling", "Funding"])
+data_source = st.selectbox("Select type", ["Twitter", "Polling (COMING SOON)", "Funding (COMING SOON)"])
 st.session_state['fetch_data_pressed'] = False
 
 if data_source == "Twitter":
